@@ -1,7 +1,6 @@
 # Standalone GPU image for zed_wrapper (ZED SDK + CUDA).
-# Build from the grip repo root:
-#   docker compose --profile build build ros-zenoh-base   # once
-#   docker compose build zed-wrapper
+# Build from the zed-ros2-wrapper repo root:
+#   docker build -f zed_wrapper/docker/Dockerfile -t zed-wrapper:jazzy .
 
 ARG CUDA_MAJOR=12
 ARG CUDA_MINOR=8
@@ -11,10 +10,12 @@ FROM nvcr.io/nvidia/cuda:${CUDA_MAJOR}.${CUDA_MINOR}.${CUDA_PATCH}-devel-ubuntu2
 ARG PACKAGE_NAME=zed_wrapper
 ARG ZED_SDK_VERSION=5.4.0
 ARG ROS_DISTRO=jazzy
+ARG TENSORRT_VERSION=10.9.0.34-1+cuda12.8
 
 ENV DEBIAN_FRONTEND=noninteractive \
     ROS_DISTRO=${ROS_DISTRO} \
-    NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}compute,video,utility
+    NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}compute,video,utility,graphics \
+    LD_LIBRARY_PATH=/usr/local/zed/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 # ---- Base system tools -------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,6 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake git wget zstd usbutils \
     python3 python3-dev python3-pip \
     libopencv-dev libpng-dev libgomp1 libusb-1.0-0-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- TensorRT runtime for ZED neural depth ----------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnvinfer10=${TENSORRT_VERSION} \
+    libnvinfer-plugin10=${TENSORRT_VERSION} \
+    libnvonnxparsers10=${TENSORRT_VERSION} \
     && rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen en_US en_US.UTF-8 \
@@ -59,16 +67,20 @@ RUN rosdep init || true
 ARG ZED_SDK_URL=https://download.stereolabs.com/zedsdk/${ZED_SDK_VERSION}/cu12/ubuntu24
 RUN wget -q -O /tmp/ZED_SDK.run "${ZED_SDK_URL}" \
     && chmod +x /tmp/ZED_SDK.run \
-    && /tmp/ZED_SDK.run -- silent skip_tools \
+    && /tmp/ZED_SDK.run -- silent skip_tools skip_cuda \
     && ln -sf /lib/x86_64-linux-gnu/libusb-1.0.so.0 /usr/lib/x86_64-linux-gnu/libusb-1.0.so \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libnvinfer.so.10 /usr/lib/x86_64-linux-gnu/libnvinfer.so \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libnvinfer_plugin.so.10 /usr/lib/x86_64-linux-gnu/libnvinfer_plugin.so \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libnvonnxparser.so.10 /usr/lib/x86_64-linux-gnu/libnvonnxparser.so \
+    && ldconfig \
     && rm -f /tmp/ZED_SDK.run
 
-# ---- Package sources (grip build context = repo root) ------------------------
+# ---- Package sources (zed-ros2-wrapper build context = repo root) ------------
 WORKDIR /workspace
 
-COPY src/zed-ros2-wrapper/zed_components /workspace/src/zed-ros2-wrapper/zed_components
-COPY src/zed-ros2-wrapper/zed_wrapper /workspace/src/zed-ros2-wrapper/zed_wrapper
-COPY src/zed-ros2-wrapper/zed_wrapper/docker/ros_entrypoint.sh /ros_entrypoint.sh
+COPY zed_components /workspace/src/zed-ros2-wrapper/zed_components
+COPY zed_wrapper /workspace/src/zed-ros2-wrapper/zed_wrapper
+COPY zed_wrapper/docker/ros_entrypoint.sh /ros_entrypoint.sh
 RUN chmod 755 /ros_entrypoint.sh
 
 # ---- Scoped rosdep + colcon build --------------------------------------------
