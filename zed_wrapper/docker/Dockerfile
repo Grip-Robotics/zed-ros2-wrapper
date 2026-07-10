@@ -64,10 +64,10 @@ RUN wget -q -O /tmp/ZED_SDK.run "${ZED_SDK_URL}" \
     && rm -f /tmp/ZED_SDK.run
 
 # ---- Package sources (grip build context = repo root) ------------------------
-WORKDIR /opt/grip
+WORKDIR /workspace
 
-COPY src/zed-ros2-wrapper/zed_components /opt/grip/src/zed-ros2-wrapper/zed_components
-COPY src/zed-ros2-wrapper/zed_wrapper /opt/grip/src/zed-ros2-wrapper/zed_wrapper
+COPY src/zed-ros2-wrapper/zed_components /workspace/src/zed-ros2-wrapper/zed_components
+COPY src/zed-ros2-wrapper/zed_wrapper /workspace/src/zed-ros2-wrapper/zed_wrapper
 COPY src/zed-ros2-wrapper/zed_wrapper/docker/ros_entrypoint.sh /ros_entrypoint.sh
 RUN chmod 755 /ros_entrypoint.sh
 
