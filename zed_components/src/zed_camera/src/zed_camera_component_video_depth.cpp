@@ -144,7 +144,7 @@ void ZedCamera::initVideoDepthPublishers()
 
     // Lambda to create TypeAdapter IPC publisher (handles raw + zero-copy)
     auto create_ipc_pub = [&](const std::string & topic) -> adaptedImagePub {
-        auto pub = create_publisher<SlImageAdapter>(topic, mQos);
+        auto pub = create_publisher<SlImageAdapter>(topic, mQos, mPubOpt);
         RCLCPP_INFO_STREAM(
           get_logger(),
           " * Advertised on topic: " << pub->get_topic_name() << " [IPC type-adapted zero-copy]");
